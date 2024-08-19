@@ -1,11 +1,7 @@
 ---
 title: enron_edisco
 author: "Andre Abadi"
-output:
-  pdf_document:
-    fig_caption: true # render captions for figures
-    extra_dependencies: ["float"] # floating images
-    df_print: kable # print dataframes as kables automatically
+output: github_document
 ---
 
 ```{r knit_options, include=FALSE}
@@ -27,8 +23,8 @@ knitr::opts_chunk$set(
 - Data and metadata for model training.
 - Data labels:
   - `1` = relevant/responsive.
-  - `0` = neither.
-  - `-1` = irrelevant/not responsive.
+  - `NA` = neither.
+  - `0` = irrelevant/not responsive.
 
 It is the author's hope that this dataset is easily ingestible for the purposes of developing active learning models and other such systems as used in e-discovery.
 
@@ -111,8 +107,8 @@ if ("cat_1_level_2" %in% names(enron_edisco)) {
     enron_edisco |>
     mutate(
       cat_1_level_2 = case_when(
-        is.na(cat_1_level_2) ~ 0,
-        cat_1_level_2 > 1 ~ -1,
+        #is.na(cat_1_level_2) ~ 0,
+        cat_1_level_2 > 1 ~ 0,
         TRUE ~ cat_1_level_2
       )
     ) |>
