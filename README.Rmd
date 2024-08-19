@@ -147,3 +147,11 @@ fwrite(enron_edisco,
        na = "", 
        quote = "auto")
 ```
+
+## Cleanup
+
+```{r cleanup}
+if (exists("enron_edisco")) {
+  rm(enron_edisco)
+}
+```
