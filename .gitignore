@@ -55,4 +55,4 @@ rsconnect/
 **/*.csv
 
 # output
-output/*
+output/ENR/*
