@@ -1,0 +1,1 @@
+Get-Content ".\enron_05_17_2015_with_labels_v2.csv" | Select-Object -First 51 | Set-Content ".\enron_first_50_rows.csv"

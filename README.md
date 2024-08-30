@@ -74,6 +74,28 @@ library(tidyverse) # as_tibble
 library(data.table) # fread
 library(janitor) # clean_names
 library(stringr) # str_replace
+library(zip) # zip, unzip
+```
+
+### Unzip
+
+If not already complete, unzip the data.
+
+``` r
+require(zip)
+file_path <- "data/enron_05_17_2015_with_labels_v2.csv"
+zip_path <- "data/enron_05_17_2015_with_labels_v2.zip"
+if (!file.exists(file_path)) {
+  if (file.exists(zip_path)) {
+    unzip(zip_path, exdir = "data")
+  } else {
+    stop("Neither the CSV file nor the ZIP file exists.")
+  }
+}
+rm(
+  file_path,
+  zip_path
+)
 ```
 
 ### Import
@@ -113,7 +135,17 @@ enron_edisco <-
   distinct() |>
   clean_names() |>
   as_tibble()
+enron_edisco |> glimpse()
 ```
+
+    ## Rows: 255,871
+    ## Columns: 6
+    ## $ date          <dttm> 2001-05-14 23:39:00, 2001-05-04 20:51:00, 2000-10-18 10…
+    ## $ from          <chr> "frozenset({'phillip.allen@enron.com'})", "frozenset({'p…
+    ## $ to            <chr> "frozenset({'tim.belden@enron.com'})", "frozenset({'john…
+    ## $ subject       <chr> "", "Re:", "Re: test", "", "Re: Hello", "Re: Hello", "",…
+    ## $ content       <chr> "Here is our forecast", "Traveling to have a business me…
+    ## $ cat_1_level_2 <int> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
 
 ### Classification
 
@@ -131,9 +163,15 @@ if ("cat_1_level_2" %in% names(enron_edisco)) {
     ) |>
     rename(relevant = cat_1_level_2)
 }
+enron_edisco |> count(relevant) |> as.data.frame()
 ```
 
-## e-Discovery Formatting
+    ##   relevant      n
+    ## 1        0    845
+    ## 2        1    817
+    ## 3       NA 254209
+
+### e-Discovery Formatting
 
 In this section we add new columns to maximise compatibility when
 ingesting into e-Discovery platforms.
@@ -150,28 +188,104 @@ if (!"doc_id" %in% names(enron_edisco)) {
   enron_edisco <- 
     enron_edisco |>
     mutate(doc_id = sprintf("ENR.%04d.%04d.%04d", 
-                            (row_number() - 1) %/% 1000000 + 1, 
+                            9000 + (row_number() - 1) %/% 1000000, 
                             ((row_number() - 1) %/% 1000) %% 1000 + 1, 
                             (row_number() - 1) %% 1000 + 1)) |>
     select(doc_id,relevant,everything())
 }
+enron_edisco |>
+  arrange(desc(doc_id)) |>
+  slice_head(n = 1) |>
+  pull(doc_id)
 ```
+
+    ## [1] "ENR.9000.0256.0871"
+
+## Subsetting
+
+``` r
+set.seed(1)
+require(data.table)
+enron_na <- 
+  enron_edisco |>
+  filter(is.na(relevant))
+enron_classified <-
+  enron_edisco |>
+  filter(!is.na(relevant))
+required_rows <-
+  5000 - nrow(enron_classified)
+additional_rows <-
+  enron_na |>
+  sample_n(required_rows)
+enron_5k <-
+  enron_classified |>
+  rbind(additional_rows) |>
+  arrange(doc_id)
+rm(
+  enron_na,
+  enron_classified,
+  required_rows,
+  additional_rows
+)
+enron_5k |> 
+  count(relevant)
+```
+
+    ## # A tibble: 3 × 2
+    ##   relevant     n
+    ##      <dbl> <int>
+    ## 1        0   845
+    ## 2        1   817
+    ## 3       NA  3338
 
 ## Output
 
+### Combined
+
 ``` r
+require(tidyverse)
 require(data.table)
-enron_edisco |> setDT()
-fwrite(enron_edisco, 
-       "enron_edisco.csv", 
-       na = "", 
-       quote = "auto")
-```
-
-## Cleanup
-
-``` r
-if (exists("enron_edisco")) {
-  rm(enron_edisco)
+require(zip)
+output_folder <- "output/"
+output_scope <- "enron_5k"
+if (!dir.exists(output_folder)) {
+  dir.create(output_folder)
 }
+write_content_to_file <- 
+  function(doc_id, content) {
+    parts <- strsplit(doc_id, "\\.")[[1]]
+    dir_path <- paste0(output_folder, "ENR/", parts[2], "/", parts[3], "/")
+    if (!dir.exists(dir_path)) {
+      dir.create(dir_path, recursive = TRUE)
+    }
+    file_name <- paste0(doc_id, ".txt")
+    file_path <- paste0(dir_path, file_name)
+    if (!file.exists(file_path)) {
+      writeLines(content, con = file_path)
+    }
+    return(paste0("ENR/", parts[2], "/", parts[3], "/", file_name))
+  }
+assign(output_scope, get(output_scope) |>
+  rowwise() |>
+  mutate(
+    path = write_content_to_file(doc_id, content)
+  ) |>
+  ungroup())
+tibble_data <- get(output_scope) |>
+  mutate(
+    across(everything(), ~ gsub('["\n\r\t]', "", .)),
+    content = NULL
+  ) |>
+  setDT()
+file_name <- paste0(output_folder, "enron_edisco", ".csv")
+fwrite(tibble_data, file_name, na = "", quote = "auto")
+zip("output/enron_edisco.zip", files = "output/")
+unlink("output/ENR", recursive = TRUE)
+rm(
+  write_content_to_file, 
+  tibble_data, 
+  file_name,
+  output_folder,
+  output_scope
+)
 ```

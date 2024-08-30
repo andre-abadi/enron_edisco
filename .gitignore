@@ -53,3 +53,6 @@ rsconnect/
 
 # CSVs
 **/*.csv
+
+# output
+output/*
