@@ -62,6 +62,7 @@ library(data.table) # fread
 library(janitor) # clean_names
 library(stringr) # str_replace
 library(zip) # zip, unzip
+library(digest) # digest
 ```
 
 ### Unzip
@@ -71,13 +72,32 @@ If not already complete, unzip the data.
 ```{r unzip}
 require(zip)
 file_path <- "data/enron_05_17_2015_with_labels_v2.csv"
-zip_path <- "data/enron_05_17_2015_with_labels_v2.zip"
+zip_path <- "data/enron_05_17_2015_with_labels_v2.csv.zip"
+print("Checking if the CSV file exists...")
 if (!file.exists(file_path)) {
+  print("CSV file does not exist.")
+  print("Checking if the ZIP file exists...")
   if (file.exists(zip_path)) {
-    unzip(zip_path, exdir = "data")
+    print("ZIP file found. Attempting to unzip the file...")
+    unzip_status <- tryCatch({
+      unzip(zip_path, exdir = "data")
+      TRUE
+    }, error = function(e) {
+      print("An error occurred during unzipping.")
+      FALSE
+    })
+    
+    if (unzip_status) {
+      print("File successfully unzipped.")
+    } else {
+      stop("Failed to unzip the file.")
+    }
   } else {
+    print("ZIP file does not exist.")
     stop("Neither the CSV file nor the ZIP file exists.")
   }
+} else {
+  print("CSV file exists. No need to unzip.")
 }
 rm(
   file_path,
@@ -144,6 +164,21 @@ enron_edisco |> count(relevant) |> as.data.frame()
 
 In this section we add new columns to maximise compatibility when ingesting into e-Discovery platforms.
 
+### Email Normalisation
+
+```{r frozenset}
+library(tidyverse)
+enron_edisco <- enron_edisco %>%
+  mutate(
+    from = gsub("frozenset\\(\\{", "", from),
+    from = gsub("\\}\\)", "", from),
+    from = gsub("([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}),", "'\\1',", from),
+    to = gsub("frozenset\\(\\{", "", to),
+    to = gsub("\\}\\)", "", to),
+    to = gsub("([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}),", "'\\1',", to)
+  )
+```
+
 ### Document ID
 
 We add a Document ID in Australian Bates number format, so the first document will have Document ID ENR.0001.0001.0001, the second will have ENR.0001.0001.0001, and so on.
@@ -204,10 +239,16 @@ enron_5k |>
 require(tidyverse)
 require(data.table)
 require(zip)
+require(digest)
 output_folder <- "output/"
 output_scope <- "enron_5k"
+zip_name <- "enron_edisco.zip"
+path <- "output"
 if (!dir.exists(output_folder)) {
   dir.create(output_folder)
+}
+if (dir.exists(output_folder)) {
+  file.remove(list.files(output_folder, full.names = TRUE)) |> invisible()
 }
 write_content_to_file <- 
   function(doc_id, content) {
@@ -226,7 +267,8 @@ write_content_to_file <-
 assign(output_scope, get(output_scope) |>
   rowwise() |>
   mutate(
-    path = write_content_to_file(doc_id, content)
+    native = write_content_to_file(doc_id, content),
+    md5 = digest::digest(file = paste0(output_folder, native), algo = "md5")
   ) |>
   ungroup())
 tibble_data <- get(output_scope) |>
@@ -237,13 +279,20 @@ tibble_data <- get(output_scope) |>
   setDT()
 file_name <- paste0(output_folder, "enron_edisco", ".csv")
 fwrite(tibble_data, file_name, na = "", quote = "auto")
-zip("output/enron_edisco.zip", files = "output/")
+zip_exclusions <- c(zip_name,
+                    "desktop.ini")
+files_to_zip <- list.files("output/", full.names = TRUE)
+files_to_zip <- files_to_zip[!basename(files_to_zip) %in% zip_exclusions]
+zip("output/enron_edisco.zip", files = files_to_zip)
 unlink("output/ENR", recursive = TRUE)
+unlink("output/enron_edisco.csv")
 rm(
   write_content_to_file, 
   tibble_data, 
   file_name,
   output_folder,
-  output_scope
+  output_scope,
+  files_to_zip,
+  zip_exclusions
 )
 ```
