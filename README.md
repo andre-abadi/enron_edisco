@@ -283,6 +283,29 @@ enron_5k |>
     ## 2        1   817
     ## 3       NA  3338
 
+## Training/Testing Split
+
+``` r
+enron_5k <- enron_5k |>
+  mutate(
+    train_test = if_else(!is.na(relevant),
+                          sample(c("train",
+                                   "test"),
+                                 n(),
+                                 replace = TRUE,
+                                 prob = c(0.8, 0.2)),
+                              NA_character_),
+    train_test  = factor(train_test))
+enron_5k |> count(train_test)
+```
+
+    ## # A tibble: 3 × 2
+    ##   train_test     n
+    ##   <fct>      <int>
+    ## 1 test         332
+    ## 2 train       1330
+    ## 3 <NA>        3338
+
 ## Output
 
 ### Combined
@@ -345,6 +368,8 @@ rm(
   output_folder,
   output_scope,
   files_to_zip,
-  zip_exclusions
+  zip_exclusions,
+  path,
+  zip_name
 )
 ```
