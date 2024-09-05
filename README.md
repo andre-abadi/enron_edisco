@@ -286,6 +286,7 @@ enron_5k |>
 ## Training/Testing Split
 
 ``` r
+set.seed(1)
 enron_5k <- enron_5k |>
   mutate(
     train_test = if_else(!is.na(relevant),
@@ -302,8 +303,8 @@ enron_5k |> count(train_test)
     ## # A tibble: 3 × 2
     ##   train_test     n
     ##   <fct>      <int>
-    ## 1 test         332
-    ## 2 train       1330
+    ## 1 test         333
+    ## 2 train       1329
     ## 3 <NA>        3338
 
 ## Output

@@ -233,6 +233,7 @@ enron_5k |>
 ## Training/Testing Split
 
 ```{r train_test}
+set.seed(1)
 enron_5k <- enron_5k |>
   mutate(
     train_test = if_else(!is.na(relevant),
