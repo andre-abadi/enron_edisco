@@ -309,7 +309,13 @@ enron_5k |> count(train_test)
 
 ## Output
 
-### Combined
+### Outboard Content
+
+This creates a Zip file containing:
+
+- A CSV with MD5 and file path.
+- A seperate TXT file for each document.
+- No content in the CSV.
 
 ``` r
 require(tidyverse)
@@ -318,8 +324,9 @@ require(zip)
 require(digest)
 output_folder <- "output/"
 output_scope <- "enron_5k"
-zip_name <- "enron_edisco.zip"
+zip_name <- "enron_5k_outboard.zip"
 path <- "output"
+file_name <- paste0(output_folder, "enron_5k_outboard", ".csv")
 if (!dir.exists(output_folder)) {
   dir.create(output_folder)
 }
@@ -353,15 +360,15 @@ tibble_data <- get(output_scope) |>
     content = NULL
   ) |>
   setDT()
-file_name <- paste0(output_folder, "enron_edisco", ".csv")
+
 fwrite(tibble_data, file_name, na = "", quote = "auto")
 zip_exclusions <- c(zip_name,
                     "desktop.ini")
 files_to_zip <- list.files("output/", full.names = TRUE)
 files_to_zip <- files_to_zip[!basename(files_to_zip) %in% zip_exclusions]
-zip("output/enron_edisco.zip", files = files_to_zip)
+zip("output/enron_5k_outboard.zip", files = files_to_zip)
 unlink("output/ENR", recursive = TRUE)
-unlink("output/enron_edisco.csv")
+unlink("output/enron_5k_outboard.csv")
 rm(
   write_content_to_file, 
   tibble_data, 
@@ -372,5 +379,42 @@ rm(
   zip_exclusions,
   path,
   zip_name
+)
+```
+
+### Inboard Content
+
+This creates a single CSV with everything in one file.
+
+``` r
+require(tidyverse)
+require(data.table)
+require(zip)
+output_scope <- "enron_5k"
+output_folder <- "output/"
+zip_name <- "enron_5k_inboard.zip"
+zip_path <- paste0(output_folder, zip_name)
+file_name <- "enron_5k_inboard.csv"
+file_path <- paste0(output_folder, file_name)
+if (file.exists(zip_path)) {
+  file.remove(zip_path) |> invisible()
+}
+if (file.exists(file_name)) {
+  file.remove(file_name) |> invisible()
+}
+output_inboard <-
+  enron_5k |>
+  select(-native) |>
+  relocate(content, .after = last_col())
+fwrite(output_inboard, file_path, na = "", quote = "auto")
+zip(zip_path, files = file_path)
+unlink(file_path)
+rm(
+  zip_name,
+  zip_path,
+  file_name,
+  file_path,
+  output_folder,
+  output_scope
 )
 ```
