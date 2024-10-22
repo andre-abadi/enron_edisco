@@ -2,6 +2,27 @@ enron_edisco
 ================
 Andre Abadi
 
+## TLDR
+
+- 5000 Enron emails.
+  - 1662 classified for relevance to Enron’s collapse (`relevant`
+    column).
+    - 845 relevant (`relevant` = `1`).
+    - 817 irrelevant (`relevant` = `0`).
+    - 3338 unclassified emails to make up 5000 total (no value for
+      `relevant` column).
+  - 80:20 training-testing split (`train_test` column).
+    - 1329 training set with even split of relevant/irrelevant
+      (`train_test` = `train`).
+    - 333 testing subset with even split of relevant/irrelevant
+      (`train_test` = `test`).
+    - Other 3338 have no value for `train_test` column.
+- Two main versions for use, found in the `output` folder.
+  - **Inboard** version is CSV with email content in a column.
+  - **Outboard** version is CSV with email content in TXT files nested
+    according to Document ID.
+    - Described as a *flat file* for eDiscovery systems.
+
 ## Introduction
 
 **This Project** called **enron_edisco** is our attempt to create a
